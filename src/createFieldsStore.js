@@ -11,6 +11,12 @@ function partOf(a, b) {
   return b.indexOf(a) === 0 && ['.', '['].indexOf(b[a.length]) !== -1;
 }
 
+/**
+ * 内部压平字段
+ * @notes yzsexe
+ * @param {*} fields 
+ * @returns 
+ */
 function internalFlattenFields(fields) {
   return flattenFields(
     fields,
@@ -21,15 +27,29 @@ function internalFlattenFields(fields) {
 
 class FieldsStore {
   constructor(fields) {
+    // 所有字段
     this.fields = internalFlattenFields(fields);
+
+    // 字段元
     this.fieldsMeta = {};
   }
 
+  /**
+   * 更新字段
+   * @param {*} fields 
+   */
   updateFields(fields) {
     this.fields = internalFlattenFields(fields);
   }
 
+  /**
+   * 压平已注册的字段
+   * @notes yzsexe
+   * @param {*} fields 
+   * @returns 
+   */
   flattenRegisteredFields(fields) {
+    // 有效的字段名数组
     const validFieldsName = this.getAllFieldsName();
     return flattenFields(
       fields,
@@ -79,6 +99,12 @@ class FieldsStore {
     this.fields = nowFields;
   }
 
+  /**
+   * 重置n组输入控件的值，如不传入参数，则重置所有组件, 并返回
+   * @notes yzs
+   * @param { string[] } ns 需要重置的字段名数组
+   * @returns { { [propName]: {} } }
+   */
   resetFields(ns) {
     const { fields } = this;
     const names = ns ?
@@ -93,10 +119,20 @@ class FieldsStore {
     }, {});
   }
 
+  /**
+   * 更新设置字段元的某个字段的元数据
+   * @param {*} name 
+   * @param {*} meta 
+   */
   setFieldMeta(name, meta) {
     this.fieldsMeta[name] = meta;
   }
 
+  /**
+   * 将所有字段标识dirty = true
+   * // todo: 具体作用等看完其他源码再来补充
+   * @notes yzs
+   */
   setFieldsAsDirty() {
     Object.keys(this.fields).forEach((name) => {
       const field = this.fields[name];
@@ -110,11 +146,23 @@ class FieldsStore {
     });
   }
 
+  /**
+   * 获取某个字段的字段元
+   * @param {String} name 
+   * @returns {Object}
+   */
   getFieldMeta(name) {
     this.fieldsMeta[name] = this.fieldsMeta[name] || {};
     return this.fieldsMeta[name];
   }
 
+  /**
+   * 从所有字段数据(this.fields)中获取对应name的值
+   * @notes yzs
+   * @param {String} name 
+   * @param {Object} fields 
+   * @returns {*} value or initialValue
+   */
   getValueFromFields(name, fields) {
     const field = fields[name];
     if (field && 'value' in field) {
@@ -124,24 +172,46 @@ class FieldsStore {
     return fieldMeta && fieldMeta.initialValue;
   }
 
+  /**
+   * 获取所有值
+   * // tag: 该方法reduce的用法可借鉴
+   * @notes yzs
+   * @returns 
+   */
   getAllValues = () => {
     const { fieldsMeta, fields } = this;
     return Object.keys(fieldsMeta)
       .reduce((acc, name) => set(acc, name, this.getValueFromFields(name, fields)), {});
   }
 
+  /**
+   * 获取所有有效字段名
+   * @notes yzs
+   * @returns { string[] } string[]. eg: ["abc.a.c", "d"]
+   */
   getValidFieldsName() {
     const { fieldsMeta } = this;
+
+    // fieldMeta元对象中某个字段对象的hidden: 在验证或获取字段时忽略当前字段, 默认是false, 不忽略
     return fieldsMeta ?
       Object.keys(fieldsMeta).filter(name => !this.getFieldMeta(name).hidden) :
       [];
   }
 
+  /**
+   * 返回所有字段的key数组
+   * @returns 
+   */
   getAllFieldsName() {
     const { fieldsMeta } = this;
     return fieldsMeta ? Object.keys(fieldsMeta) : [];
   }
 
+  /**
+   * 获取所有有效字段的全名
+   * @param {String | String[]} maybePartialName 可能是不完整的字段名
+   * @returns { String[] } string[]
+   */
   getValidFieldsFullName(maybePartialName) {
     const maybePartialNames = Array.isArray(maybePartialName) ?
       maybePartialName : [maybePartialName];
@@ -154,6 +224,12 @@ class FieldsStore {
       )));
   }
 
+  /**
+   * 根据[控件字段名]获取组件的props值
+   * @notes yzsexe
+   * @param {*} fieldMeta 
+   * @returns 
+   */
   getFieldValuePropValue(fieldMeta) {
     const { name, getValueProps, valuePropName } = fieldMeta;
     const field = this.getField(name);
@@ -165,6 +241,12 @@ class FieldsStore {
     return { [valuePropName]: fieldValue };
   }
 
+  /**
+   * 根据[控件字段名]获取字段相关数据
+   * @notes yzsexe
+   * @param {*} name 
+   * @returns 
+   */
   getField(name) {
     return {
       ...this.fields[name],
@@ -201,7 +283,14 @@ class FieldsStore {
     return fields.reduce((acc, f) => set(acc, f, getter(f)), {});
   }
 
+  /**
+   * // 获取嵌套的字段对象
+   * @param {String | String[]} name 可能是不完整的字段名
+   * @param {*} getter 
+   * @returns 
+   */
   getNestedField(name, getter) {
+    // 获取所有有效字段的全名
     const fullNames = this.getValidFieldsFullName(name);
     if (
       fullNames.length === 0 || // Not registered
@@ -226,6 +315,12 @@ class FieldsStore {
     return this.getNestedFields(names, this.getFieldValue);
   }
 
+  /**
+   * 获取控件字段名对应的值
+   * @notes yzs
+   * @param {String | String[]} name 可能是不完整的字段名
+   * @returns {*} value or initialValue
+   */
   getFieldValue = (name) => {
     const { fields } = this;
     return this.getNestedField(name, (fullName) => this.getValueFromFields(fullName, fields));
@@ -260,6 +355,12 @@ class FieldsStore {
     return names.some((n) => this.isFieldTouched(n));
   }
 
+  /**
+   * 判断是否是有效的(嵌套)字段名
+   * @notes yzsexe
+   * @param {*} name 
+   * @returns 
+   */
   // @private
   // BG: `a` and `a.b` cannot be use in the same form
   isValidNestedFieldName(name) {
@@ -267,6 +368,10 @@ class FieldsStore {
     return names.every(n => !partOf(n, name) && !partOf(name, n));
   }
 
+  /**
+   * 清空对应字段名的字段数据、字段元的对应元数据
+   * @param {*} name 
+   */
   clearField(name) {
     delete this.fields[name];
     delete this.fieldsMeta[name];

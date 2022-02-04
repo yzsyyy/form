@@ -54,4 +54,4 @@ class Form extends React.Component {
 }
 
 const WrappedForm = createForm()(Form);
-ReactDOM.render(<WrappedForm />, document.getElementById('__react-content'));
+ReactDOM.render(<WrappedForm yzs="yzs" />, document.getElementById('__react-content'));

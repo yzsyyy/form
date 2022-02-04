@@ -30,14 +30,11 @@ function createBaseForm(option = {}, mixins = []) {
   const {
     validateMessages,
     onFieldsChange,
-    // 任一表单域的值发生改变时的回调: (props, changedValues, allValues) => void
     onValuesChange,
     mapProps = identity,
     mapPropsToFields,
     fieldNameProp,
-    // 指定getFieldProps的元数据存在哪里: string
     fieldMetaProp,
-    // 存储字段数据的位置
     fieldDataProp,
     formPropName = 'form',
     // 单域内字段 id 的前缀
@@ -46,29 +43,21 @@ function createBaseForm(option = {}, mixins = []) {
     withRef,
   } = option;
 
-  // 返回一个高阶函数
   return function decorate(WrappedComponent) {
-    // 用create-react-class创建一个表单类
     const Form = createReactClass({
       mixins,
 
-      // 初始化state
       getInitialState() {
         const fields = mapPropsToFields && mapPropsToFields(this.props);
-        // 创建字段状态机
         this.fieldsStore = createFieldsStore(fields || {});
 
-        // 字段实例的集合
         this.instances = {};
         // 缓存绑定
         this.cachedBind = {};
-        // 已清除的字段元的缓存集合
+        // 清除的字段元缓存
         this.clearedFieldMetaCache = {};
 
-        // 已渲染更新的字段名集合
         this.renderFields = {};
-
-        // 挂载了ref的控件字段名集合
         this.domFields = {};
 
         // HACK: https://github.com/ant-design/ant-design/issues/6406
@@ -101,7 +90,6 @@ function createBaseForm(option = {}, mixins = []) {
       },
 
       componentDidMount() {
-        // 清理无用的字段
         this.cleanUpUselessFields();
       },
 
@@ -112,18 +100,9 @@ function createBaseForm(option = {}, mixins = []) {
       },
 
       componentDidUpdate() {
-        // 清理无用的字段
         this.cleanUpUselessFields();
       },
 
-      /**
-       * 收集返回控件字段名的信息
-       * @notes yzs
-       * @param {String} name 控件字段名
-       * @param {String} action 事件名称. eg: onChange, onBlur
-       * @param {Array} args 剩余参数
-       * @returns {Object}
-       */
       onCollectCommon(name, action, args) {
         const fieldMeta = this.fieldsStore.getFieldMeta(name);
         if (fieldMeta[action]) {
@@ -131,23 +110,16 @@ function createBaseForm(option = {}, mixins = []) {
         } else if (fieldMeta.originalProps && fieldMeta.originalProps[action]) {
           fieldMeta.originalProps[action](...args);
         }
-
-        // 从target.value or target.checked获取最新?值
         const value = fieldMeta.getValueFromEvent
           ? fieldMeta.getValueFromEvent(...args)
           : getValueFromEvent(...args);
-
-        // 若设置了任一表单域的值发生改变时的回调 && value !== 状态机原来的value
         if (onValuesChange && value !== this.fieldsStore.getFieldValue(name)) {
-          // 获取所有字段的值(全新对象)
           const valuesAll = this.fieldsStore.getAllValues();
           const valuesAllSet = {};
           valuesAll[name] = value;
           Object.keys(valuesAll).forEach(key =>
             set(valuesAllSet, key, valuesAll[key]),
           );
-
-          // (props, changedValues, allValues) => void
           onValuesChange(
             {
               [formPropName]: this.getForm(),
@@ -161,12 +133,6 @@ function createBaseForm(option = {}, mixins = []) {
         return { name, field: { ...field, value, touched: true }, fieldMeta };
       },
 
-      /**
-       * 仅收集对应控件字段名的信息, 比onCollectValidate少了校验和一些方法执行的顺序
-       * @param {*} name_ 
-       * @param {*} action 
-       * @param  {...any} args 
-       */
       onCollect(name_, action, ...args) {
         const { name, field, fieldMeta } = this.onCollectCommon(
           name_,
@@ -186,13 +152,6 @@ function createBaseForm(option = {}, mixins = []) {
         });
       },
 
-      /**
-       * 收集验证信息
-       * @notes yzs
-       * @param {String} name_ 控件字段名
-       * @param {String} action 事件名称
-       * @param  {Array} args 剩余参数
-       */
       onCollectValidate(name_, action, ...args) {
         const { field, fieldMeta } = this.onCollectCommon(name_, action, args);
         const newField = {
@@ -211,8 +170,8 @@ function createBaseForm(option = {}, mixins = []) {
       },
 
       /**
-       * 获取缓存的绑定
-       * @notes yzs
+       * 获取缓存绑定？
+       * @notes yzsexe
        * @param {*} name 
        * @param {*} action 
        * @param {*} fn 
@@ -232,14 +191,6 @@ function createBaseForm(option = {}, mixins = []) {
         return cache[action].fn;
       },
 
-      /**
-       * // tag: 重要API
-       * 包装控件获取字段装饰器
-       * @notes yzs
-       * @param {*} name 
-       * @param {*} fieldOption 
-       * @returns 
-       */
       getFieldDecorator(name, fieldOption) {
         const props = this.getFieldProps(name, fieldOption);
         return fieldElem => {
@@ -283,9 +234,9 @@ function createBaseForm(option = {}, mixins = []) {
       },
 
       /**
-       * // tag: 重要API
        * 获取字段的参数
-       * @notes yzs
+       * @notes yzsexe
+       * @level cpApi
        * @param {String} name 控件字段名: 输入控件的唯一标识名称。
        * @param {Object} usersFieldOption 用户传入的字段配置项
        * @returns 
@@ -354,7 +305,6 @@ function createBaseForm(option = {}, mixins = []) {
         const validateTriggers = getValidateTriggers(validateRules);
         validateTriggers.forEach(action => {
           if (inputProps[action]) return;
-          // 给控件props的所有action绑定事件
           inputProps[action] = this.getCacheBind(
             name,
             action,
@@ -391,38 +341,19 @@ function createBaseForm(option = {}, mixins = []) {
         return inputProps;
       },
 
-      /**
-       * 获取字段实例
-       * @param {string} name 
-       * @returns 
-       */
       getFieldInstance(name) {
         return this.instances[name];
       },
 
-      /**
-       * 获取和action匹配的校验规则: 从字段元中
-       * @notes yzs
-       * @param {{validate: []}} fieldMeta 字段元对象
-       * @param {String} action 触发事件名称.
-       * @returns {Array}
-       */
       getRules(fieldMeta, action) {
         const actionRules = fieldMeta.validate
           .filter(item => {
-            // 筛出 !action 或 字段元对象的检验规则数组中的trigger收集子节点值的时机数组包含action
             return !action || item.trigger.indexOf(action) >= 0;
           })
           .map(item => item.rules);
         return flattenArray(actionRules);
       },
 
-      /**
-       * 更新设置所有字段
-       * @notes yzs
-       * @param {*} maybeNestedFields 
-       * @param {*} callback 
-       */
       setFields(maybeNestedFields, callback) {
         const fields = this.fieldsStore.flattenRegisteredFields(
           maybeNestedFields,
@@ -445,12 +376,6 @@ function createBaseForm(option = {}, mixins = []) {
         this.forceUpdate(callback);
       },
 
-      /**
-       * // tag: 重要API
-       * 设置一组输入控件的值
-       * @param { { [fieldName]: value } } changedValues 
-       * @param { Function } callback 
-       */
       setFieldsValue(changedValues, callback) {
         const { fieldsMeta } = this.fieldsStore;
         const values = this.fieldsStore.flattenRegisteredFields(changedValues);
@@ -517,10 +442,7 @@ function createBaseForm(option = {}, mixins = []) {
         this.instances[name] = component;
       },
 
-      /**
-       * 清理无用的字段
-       * @notes yzs
-       */
+      // 清理无用的字段
       cleanUpUselessFields() {
         const fieldList = this.fieldsStore.getAllFieldsName();
         const removedList = fieldList.filter(field => {
@@ -537,22 +459,12 @@ function createBaseForm(option = {}, mixins = []) {
         this.renderFields = {};
       },
 
-      /**
-       * 清空对应字段名的字段数据、字段元的对应元数据，并清空对应的实例对象, 和缓存绑定
-       * @param {*} name 
-       */
       clearField(name) {
         this.fieldsStore.clearField(name);
         delete this.instances[name];
         delete this.cachedBind[name];
       },
 
-      /**
-       * // tag: 重要API
-       * 重置一组输入控件的值（为 initialValue）与状态，如不传入参数，则重置所有组件
-       * @notes yzs
-       * @param { string[] } ns 需要重置的字段名数组
-       */
       resetFields(ns) {
         const newFields = this.fieldsStore.resetFields(ns);
         if (Object.keys(newFields).length > 0) {
@@ -566,10 +478,6 @@ function createBaseForm(option = {}, mixins = []) {
         }
       },
 
-      /**
-       * 恢复清除掉的字段
-       * @param {*} name 
-       */
       recoverClearedField(name) {
         if (this.clearedFieldMetaCache[name]) {
           this.fieldsStore.setFields({
@@ -583,14 +491,6 @@ function createBaseForm(option = {}, mixins = []) {
         }
       },
 
-      /**
-       * // 内部校验所有字段
-       * @notes yzs
-       * @param {*} fields 所有字段最新信息
-       * @param {*} param1 
-       * @param {*} callback 回调
-       * @returns 
-       */
       validateFieldsInternal(
         fields,
         { fieldNames, action, options = {} },
@@ -602,7 +502,6 @@ function createBaseForm(option = {}, mixins = []) {
         const alreadyErrors = {};
         fields.forEach(field => {
           const name = field.name;
-          // 若(对已经校验过的表单域, 在 validateTrigger 再次被触发时不再次校验) && (dirty === false)
           if (options.force !== true && field.dirty === false) {
             if (field.errors) {
               set(alreadyErrors, name, { errors: field.errors });
@@ -617,14 +516,12 @@ function createBaseForm(option = {}, mixins = []) {
           newField.validating = true;
           newField.dirty = true;
           allRules[name] = this.getRules(fieldMeta, action);
-          // 这时对应字段的value是最新的
           allValues[name] = newField.value;
           allFields[name] = newField;
         });
         this.setFields(allFields);
-        // in case normalize 以防正常化?
+        // in case normalize
         Object.keys(allValues).forEach(f => {
-          // 获取控件字段名对应的值: value or initialValue
           allValues[f] = this.fieldsStore.getFieldValue(f);
         });
         if (callback && isEmptyObject(allFields)) {
@@ -634,7 +531,6 @@ function createBaseForm(option = {}, mixins = []) {
           );
           return;
         }
-
         const validator = new AsyncValidator(allRules);
         if (validateMessages) {
           validator.messages(validateMessages);
@@ -728,15 +624,6 @@ function createBaseForm(option = {}, mixins = []) {
         });
       },
 
-      /**
-       * // tag: 重要API
-       * 校验并获取一组输入域的值与 Error，若 fieldNames 参数为空，则校验全部组件.
-       * @notes yzs
-       * @param { [fieldNames: String[]] } ns 字段名数组, 可选
-       * @param { [options: Object] } opt 配置, 并新增了force字段. 可选
-       * @param { callback: (errors, values) => void } cb 回调, 可选
-       * @returns 
-       */
       validateFields(ns, opt, cb) {
         const pending = new Promise((resolve, reject) => {
           const { names, options } = getParams(ns, opt, cb);
@@ -811,11 +698,6 @@ function createBaseForm(option = {}, mixins = []) {
         return this.state.submitting;
       },
 
-      /**
-       * // tag: 弃用
-       * 表单默认提交方法
-       * @param {*} callback 
-       */
       submit(callback) {
         if (
           process.env.NODE_ENV !== 'production' &&
